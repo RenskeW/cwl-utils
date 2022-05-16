@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-only
+import requests
 import sys
 from typing import Iterator, Union, cast
 
@@ -20,6 +21,7 @@ def extract_software_packages(process: ProcessType) -> None:
     for req in extract_software_reqs(process):
         print(process.id)
         process_software_requirement(req)
+        query_biotools(req) # added by Renske
 
 
 def extract_software_reqs(
@@ -71,6 +73,27 @@ def traverse_workflow(workflow: cwl.Workflow) -> None:
         extract_software_packages(step)
         traverse(get_process_from_step(step))
 
+## Added by Renske
+def query_biotools(req):
+    """Retrieve metadata from bio.tools."""
+    for package in req.packages:
+        for spec in package.specs:
+            if "bio.tools" in spec:
+                biotools_id = spec.split('/')[-1] # adapt for case where spec ends in /
+                query = f"https://bio.tools/api/tool/{biotools_id}/?format=json"
+                metadata = requests.get(query).json()
+                print(extract_citation(metadata))
+
+def extract_citation(json: dict) -> list:
+    publication = json['publication'] # list
+
+    for pub in publication:
+        doi = []
+        if 'Primary' in pub['type']:
+            doi_id = f"https://doi.org/{pub['doi']}"
+            doi.append(doi_id)
+
+    return doi
 
 if __name__ == "__main__":
     sys.exit(main())
